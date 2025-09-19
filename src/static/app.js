@@ -3,6 +3,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
+    const activitySearch = document.getElementById("activity-search");
+    const activitySort = document.getElementById("activity-sort");
+    let allActivities = {};
 
   // Function to fetch activities from API
   async function fetchActivities() {
@@ -60,6 +63,8 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelectorAll(".delete-btn").forEach((button) => {
         button.addEventListener("click", handleUnregister);
       });
+        allActivities = activities; // Store all activities for filtering and sorting
+        renderActivities(); // Call renderActivities to display the activities
     } catch (error) {
       activitiesList.innerHTML =
         "<p>Failed to load activities. Please try again later.</p>";
@@ -110,6 +115,71 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+    // Render activities with filter, sort, and search
+    function renderActivities() {
+      // Clear loading message
+      activitiesList.innerHTML = "";
+      activitySelect.innerHTML = "";
+      const searchTerm = activitySearch.value.trim().toLowerCase();
+      const sortType = activitySort.value;
+      let filtered = Object.entries(allActivities)
+        .filter(([name, details]) => {
+          // Search filter
+          return (
+            name.toLowerCase().includes(searchTerm) ||
+            details.description.toLowerCase().includes(searchTerm)
+          );
+        });
+      // Sort
+      if (sortType === "name") {
+        filtered.sort((a, b) => a[0].localeCompare(b[0]));
+      } else if (sortType === "spots") {
+        filtered.sort((a, b) => {
+          const spotsA = a[1].max_participants - a[1].participants.length;
+          const spotsB = b[1].max_participants - b[1].participants.length;
+          return spotsB - spotsA;
+        });
+      }
+      // Populate activities list and dropdown
+      filtered.forEach(([name, details]) => {
+        const activityCard = document.createElement("div");
+        activityCard.className = "activity-card";
+        const spotsLeft = details.max_participants - details.participants.length;
+        const participantsHTML =
+          details.participants.length > 0
+            ? `<div class="participants-section">
+                <h5>Participants:</h5>
+                <ul class="participants-list">
+                  ${details.participants
+                    .map(
+                      (email) =>
+                        `<li><span class="participant-email">${email}</span><button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button></li>`
+                    )
+                    .join("")}
+                </ul>
+              </div>`
+            : `<p><em>No participants yet</em></p>`;
+        activityCard.innerHTML = `
+          <h4>${name}</h4>
+          <p>${details.description}</p>
+          <p><strong>Schedule:</strong> ${details.schedule}</p>
+          <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-container">
+            ${participantsHTML}
+          </div>
+        `;
+        activitiesList.appendChild(activityCard);
+        // Add option to select dropdown
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        activitySelect.appendChild(option);
+      });
+      // Add event listeners to delete buttons
+      document.querySelectorAll(".delete-btn").forEach((button) => {
+        button.addEventListener("click", handleUnregister);
+      });
+    }
   // Handle form submission
   signupForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -155,6 +225,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+    // Toolbar event listeners
+    activitySearch.addEventListener("input", renderActivities);
+    activitySort.addEventListener("change", renderActivities);
   // Initialize app
   fetchActivities();
 });
